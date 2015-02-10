@@ -1,0 +1,85 @@
+---
+title: "ad2-titanic-arvoredecisao"
+author: "Antonio Ricardo Marque Junior"
+date: "9 February 2015"
+output: html_document
+---
+
+Titanic: Machine Learning from Disaster
+
+A partir dos dados fornecidos pela plataforma Kaggle (https://www.kaggle.com/c/titanic-gettingStarted/), foi feita uma análise sob
+uma árvore de decisão, que considera variáveis referentes aos passageiros como sexo, classe (Primeira, Segunda ou Terceira) e outros, para assim realizar uma predição sobre a chance de sobrevivência de um passageiro. Será gerada uma árvore de decisão onde os nós possuirão um valor booleano, representando assim se o grupo inserido em cada nó, sobreviveria ou não. A partir da análise das variáveis consideradas, os nós possuirão filhos que representam um subgrupo do nó pai, com novos valores indicando novas chances de sobrevivência.
+
+
+Iremos considerar o conjunto de dados fornecido: train.csv 
+```{r}
+train <- read.csv("train.csv")
+summary(train)
+```
+
+
+```{r}
+# carregando pacotes decision tree plotting
+library(rpart)
+library(rattle)
+library(rpart.plot)
+library(RColorBrewer)
+```
+
+Utilizando a library rpart, iremos gerar nossa árvore citada no início deste documento. Neste caso, nossa variável de interesse indica se o
+passageiro sobreviveu ou não (train$Survived) e utilizaremos outras variáveis para realizar a predição.
+
+Aqui, mostramos o número de homens e mulheres.
+```{r}
+  summary(train$Sex)
+```
+
+També podemos analisar a proporção de homens e mulheres que sobreviveram. 
+```{r}
+prop.table(table(train$Sex, train$Survived))
+```
+
+Uma ideia inicial que podemos extrair da tabela acima é de que mulheres eram minoria na embarcação e que tinham mais chances de sobreviver.
+
+Outra forma de visualizar a tabela seria pela porcentagem sobrevivência de cada classe. Na tabela abaixo, visualizamos com mais clareza que as mulheres tinham mais chance de sobreviver.
+```{r}
+prop.table(table(train$Sex, train$Survived), 1)
+```
+
+
+Considerando mais variáveis, iremos gerar uma árvore de decisão que terá como variável de estudo train$Survived, indicando se um passageiro sobreviveu ou não. Como neste caso não queremos uma predição sob variáveis contínuas, indicamos que para a função rpart, o método que queremos
+só assume duas opções (method="class")
+```{r}
+fit <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, data=train, method="class")
+fancyRpartPlot(fit)
+```
+
+Analisando a árvore de decisão gerada para o problema, temos um nó raiz onde representa o grupo com todos os passageiros (indicado pelo 100%),
+e porcentagens relativas à sobrevivência deste grupo. 0.62 representa o percentual de passageiros que não sobreviveu, enquanto que 0.38 representa os que sobreviveram. O valor 0 indica que, como a maioria do grupo não sobreviveu, o grupo representado por este nó provavelmente não sobreviverá.
+Os filhos diretos deste nó raiz são gerados a partir da decisão "Sex=male", onde o filho à esquerda representa o grupo de homens e o da direita, o grupo das mulheres. Para o nó que representa os passageiros do sexo feminino, temos que as mulheres representam 35% dos passageiro, onde 74% sobrevivem ao desastre. Como o percentual de sobrevivência é maior que o de não-sobrevivência, este nó é rotulado como um grupo que tem chances de sobreviver.
+Partindo do último nó aqui citado, a nova regra de decisão diz respeito à classe do passageiro (Pclass >= 2.5). O filho à direito representa o grupo de mulheres que estavam na primeira classe (classP < 2.5). Este grupo representa 19% das mulheres e mostra que 0.95 sobrevivem. Sendo assim, podemos concluir que se o passageiro era mulher e estava na primeira classe, é quase que certo que este irá sobreviver.
+
+Já para o nó à esquerda da raiz, que representa os passageiros do sexo masculino, mostra que 81% não sobrevive e, caso a idade seja maior que 6 anos, esta porcentagem sobe para 83%. Um fato curioso é que para crianças com 6 anos ou menos, caso possuissem 3 ou mais irmãos, todas sobrevivem. 
+
+Simplificando o modelo descrito anteriormente, agora consideraremos apenas as variáveis sexo, idade e classe, afim de identificar se no salvamento, a quem foi dado a prioridade.
+
+```{r}
+fit <- rpart(Survived ~ Pclass + Sex + Age, data=train, method="class")
+fancyRpartPlot(fit)
+```
+
+Uma informação complementar que podemos extrair dessa nova árvore, é em relação às idades para o grupo das mulheres, onde para mulheres com idade inferior a 12 anos tem mais chances de sobreviver.
+
+A variável Fare (train$Fare) parece dizer a respeito de quanto os passageiros desenbolsaram para embarcar na viagem. Seria interessante uma predição que verifique se quem pagou mais, "sobreviveu mais". A partir daí, foi montada uma árvore com a variável de interesse ainda sendo Survived, e as demais Fare e Pclass. Desta iremos realizar a predição analisando a variável Survived de forma contínua (method="anova").
+
+```{r}
+fit <- rpart(Survived ~ Fare + Pclass, data=train, method="anova")
+fancyRpartPlot(fit)
+```
+
+Neste novo formato dos nós, temos o valor de n que representa o número de passageiros, a porcentagem em relação ao número total de passageiros e a chance de sobrevivência para cada nó. O nó folha à extrema direita da árvore, representa passageiros que não são da terceira classe (classe média e alta) que tiveram as tarifas mais altas. Estes se encontram no grupo com maior chance de sobrevivência (0.73).
+Um fato curioso dessa predição está em um grupo de 11 passageiros da terceira classe, com uma tarifa maior ou igual a 14, onde todos sobreviveram. 
+
+
+
+
